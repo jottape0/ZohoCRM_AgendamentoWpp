@@ -1,4 +1,5 @@
-# ZohoCRM_AgendamentoWpp
+# AgendarEnvioWhatsApp
+
 Este código em Deluge automatiza o envio de mensagens agendadas via WhatsApp utilizando a integração entre o Zoho CRM e a API da GroupAtendimento. O processo verifica as "Deals" marcadas com a flag de agendamento e, se a data e hora forem válidas, envia a mensagem programada ao contato correspondente.
 
 Funcionalidades:
