@@ -1,0 +1,288 @@
+try 
+{
+	updateDeal = Map();
+	dateTime = zoho.currenttime.toString("dd-MM-yyyy HH:mm","GMT-3");
+	flag = "true";
+	responseDeals = zoho.crm.searchRecords("Deals","(Flag_Agendamento:equals:" + flag + ")");
+	listResponseDeals = responseDeals.toList();
+	listDealsIds = List();
+	deal = "";
+	dealId = "";
+	if(responseDeals.isEmpty())
+	{
+		info "Flag agendamento desmarcada.";
+		return;
+	}
+	for each  deal in listResponseDeals
+	{
+		responsibleService = deal.get("Responsavel_Atendimento");
+		responsibleServiceId = responsibleService.get("id");
+		usersModule = zoho.crm.getRecordById("users",responsibleServiceId );
+		userModule = usersModule.get("users").get(0);
+		userEmailZoho = userModule.get("email");
+		lastShippingLog = dateTime;
+		dealName = deal.get("Deal_Name");
+		dealId = deal.get("id");
+		listDealsIds.add(dealId);
+		contactId = deal.get("Contact_Name").get("id");
+		contactDestinationNumber = "";
+		getDateSchedulingDeals = deal.get("Data_Agendamento");
+		getTimeSchedulingUser = deal.get("Hora_Agendamento");
+		getCurrentDate = zoho.currenttime.toString("yyyy-MM-dd");
+		getCurrentTime = zoho.currenttime.toString("HH:00","GMT-3");
+		accessToken = "token_do_canal";
+		contentType = "application/json";
+		sectorId = "token_do_setor";
+		dataModuleDeals = zoho.crm.getRecordById("Deals",dealId);
+		dataModuleContacts = zoho.crm.getRecordById("Contacts",contactId);
+		contactPhone = dataModuleContacts.get("Phone");
+		messageToUser = dataModuleDeals.get("Msg_Agendada");
+		if(getDateSchedulingDeals == null || getDateSchedulingDeals == "")
+		{
+			lastShippingLog = concat(lastShippingLog," Erro ao enviar mensagem agendada. Gentileza escolher uma data válida.");
+			updateDeal.put("Flag_Agendamento",false);
+			updateDeal.put("Data_Agendamento",null);
+			updateDeal.put("Hora_Agendamento",null);
+			updateDeal.put("Msg_Agendada",null);
+			updateDeal.put("Responsavel_Atendimento",null);
+			updateDeal.put("Log_Ultimo_Envio_Wpp_Agendado",lastShippingLog);
+			zoho.crm.updateRecord("Deals",dealId,updateDeal);
+			info lastShippingLog;
+			continue;
+		}
+		if(getTimeSchedulingUser == null || getTimeSchedulingUser == "")
+		{
+			lastShippingLog = concat(lastShippingLog," Erro ao enviar mensagem agendada. Gentileza escolher uma hora válida.");
+			info lastShippingLog;
+			zoho.crm.updateRecord("Deals",dealId,{"Log_Ultimo_Envio_Wpp_Agendado":lastShippingLog});
+			continue;
+		}
+		if(getDateSchedulingDeals != getCurrentDate)
+		{
+			lastShippingLog = concat(lastShippingLog," Erro ao enviar mensagem agendada. Data divergente.");
+			updateDeal.put("Flag_Agendamento",false);
+			updateDeal.put("Data_Agendamento",null);
+			updateDeal.put("Hora_Agendamento",null);
+			updateDeal.put("Msg_Agendada",null);
+			updateDeal.put("Responsavel_Atendimento",null);
+			updateDeal.put("Log_Ultimo_Envio_Wpp_Agendado",lastShippingLog);
+			zoho.crm.updateRecord("Deals",dealId,updateDeal);
+			info lastShippingLog;
+			continue;
+		}
+		if(getTimeSchedulingUser != getCurrentTime)
+		{
+			lastShippingLog = concat(lastShippingLog," Erro ao enviar mensagem agendada. Hora divergente.");
+			updateDeal.put("Flag_Agendamento",false);
+			updateDeal.put("Data_Agendamento",null);
+			updateDeal.put("Hora_Agendamento",null);
+			updateDeal.put("Msg_Agendada",null);
+			updateDeal.put("Responsavel_Atendimento",null);
+			updateDeal.put("Log_Ultimo_Envio_Wpp_Agendado",lastShippingLog);
+			zoho.crm.updateRecord("Deals",dealId,updateDeal);
+			info lastShippingLog;
+			continue;
+		}
+		if(contactPhone != null && contactPhone != "")
+		{
+			contactDestinationNumber = contactPhone;
+			updateDeal.put("Flag_Agendamento",false);
+			updateDeal.put("Data_Agendamento",null);
+			updateDeal.put("Hora_Agendamento",null);
+			updateDeal.put("Msg_Agendada",null);
+			updateDeal.put("Responsavel_Atendimento",null);
+			updateDeal.put("Log_Ultimo_Envio_Wpp_Agendado",lastShippingLog);
+			zoho.crm.updateRecord("Deals",dealId,updateDeal);
+			info lastShippingLog;
+		}
+		else if(contactPhone == null || contactPhone.isEmpty())
+		{
+			contactDestinationNumber = deal.get("Telefone_Wpp1");
+			updateDeal.put("Flag_Agendamento",false);
+			updateDeal.put("Data_Agendamento",null);
+			updateDeal.put("Hora_Agendamento",null);
+			updateDeal.put("Msg_Agendada",null);
+			updateDeal.put("Responsavel_Atendimento",null);
+			updateDeal.put("Log_Ultimo_Envio_Wpp_Agendado",lastShippingLog);
+			zoho.crm.updateRecord("Deals",dealId,updateDeal);
+			info lastShippingLog;
+		}
+		else
+		{
+			lastShippingLog = concat(lastShippingLog," Erro ao enviar mensagem personalizada! Verifique o campo Telefone Wpp ou se o contato possui um telefone.");
+			updateDeal.put("Flag_Agendamento",false);
+			updateDeal.put("Data_Agendamento",null);
+			updateDeal.put("Hora_Agendamento",null);
+			updateDeal.put("Msg_Agendada",null);
+			updateDeal.put("Responsavel_Atendimento",null);
+			updateDeal.put("Log_Ultimo_Envio_Wpp_Agendado",lastShippingLog);
+			zoho.crm.updateRecord("Deals",dealId,updateDeal);
+			info lastShippingLog;
+			continue;
+		}
+		headers = Map();
+		headers.put("Content-Type","application/json");
+		headers.put("access-token",accessToken);
+		whatsappNumberCheck = invokeurl
+		[
+			url :"https://api.groupatendimento.com.br/core/v2/api/wa-number-check/" + contactDestinationNumber
+			type :POST
+			headers:headers
+		];
+		if(whatsappNumberCheck.get("status") == "INVALID_WA_NUMBER")
+		{
+			lastShippingLog = concat(lastShippingLog," Erro! O número não possui WhatsApp válido.");
+			updateDeal.put("Flag_Agendamento",false);
+			updateDeal.put("Data_Agendamento",null);
+			updateDeal.put("Hora_Agendamento",null);
+			updateDeal.put("Msg_Agendada",null);
+			updateDeal.put("Responsavel_Atendimento",null);
+			updateDeal.put("Log_Ultimo_Envio_Wpp_Agendado",lastShippingLog);
+			zoho.crm.updateRecord("Deals",dealId,updateDeal);
+			info lastShippingLog;
+			continue;
+		}
+		allUsersGroupAtendimento = invokeurl
+		[
+			url :"https://api.groupatendimento.com.br/core/v2/api/users"
+			type :GET
+			headers:headers
+		];
+		usersGroupAtendimentoList = allUsersGroupAtendimento.toList();
+		groupAtendimentoUserID = "";
+		for each  user in usersGroupAtendimentoList
+		{
+			if(user.get("email") == userEmailZoho)
+			{
+				groupAtendimentoUserID = user.get("id");
+				break;
+			}
+		}
+		if(groupAtendimentoUserID == "")
+		{
+			lastShippingLog = concat(lastShippingLog," Erro ao enviar mensagem personalizada! Gentileza verificar se seu email está cadastrado na plataforma Group Atendimento.");
+			updateDeal.put("Flag_Agendamento",false);
+			updateDeal.put("Data_Agendamento",null);
+			updateDeal.put("Hora_Agendamento",null);
+			updateDeal.put("Msg_Agendada",null);
+			updateDeal.put("Responsavel_Atendimento",null);
+			updateDeal.put("Log_Ultimo_Envio_Wpp_Agendado",lastShippingLog);
+			zoho.crm.updateRecord("Deals",dealId,updateDeal);
+			info lastShippingLog;
+			continue;
+		}
+		if(messageToUser != null && messageToUser != "")
+		{
+			messageToSend = messageToUser;
+		}
+		else
+		{
+			lastShippingLog = concat(lastShippingLog," Erro ao enviar mensagem personalizada! Verifique o campo Mensagem.");
+			updateDeal.put("Flag_Agendamento",false);
+			updateDeal.put("Data_Agendamento",null);
+			updateDeal.put("Hora_Agendamento",null);
+			updateDeal.put("Msg_Agendada",null);
+			updateDeal.put("Responsavel_Atendimento",null);
+			updateDeal.put("Log_Ultimo_Envio_Wpp_Agendado",lastShippingLog);
+			zoho.crm.updateRecord("Deals",dealId,updateDeal);
+			info lastShippingLog;
+			continue;
+		}
+		headers.put("Content-Type",contentType);
+		body = Map();
+		body.put("number",contactDestinationNumber);
+		body.put("sectorId",sectorId);
+		body.put("message",messageToSend);
+		body.put("forceSend",true);
+		body.put("userId",groupAtendimentoUserID);
+		createNewService = invokeurl
+		[
+			url :"https://api.groupatendimento.com.br/core/v2/api/chats/create-new"
+			type :POST
+			parameters:body.toString()
+			headers:headers
+		];
+		chatId = createNewService.get("chatId");
+		currentChatId = createNewService.get("currentChatId");
+		urlToUse = "";
+		if(chatId != null && !chatId.isEmpty())
+		{
+			urlToUse = "https://api.groupatendimento.com.br/core/v2/api/chats/" + chatId;
+		}
+		else if(currentChatId != null && !currentChatId.isEmpty())
+		{
+			urlToUse = "https://api.groupatendimento.com.br/core/v2/api/chats/" + currentChatId;
+		}
+		else
+		{
+			lastShippingLog = concat(lastShippingLog," Nenhum chat ID disponível.");
+			updateDeal.put("Flag_Agendamento",false);
+			updateDeal.put("Data_Agendamento",null);
+			updateDeal.put("Hora_Agendamento",null);
+			updateDeal.put("Msg_Agendada",null);
+			updateDeal.put("Responsavel_Atendimento",null);
+			updateDeal.put("Log_Ultimo_Envio_Wpp_Agendado",lastShippingLog);
+			zoho.crm.updateRecord("Deals",dealId,updateDeal);
+			info lastShippingLog;
+		}
+		searchDataChat = invokeurl
+		[
+			url :urlToUse
+			type :GET
+			headers:headers
+		];
+		currentUser = searchDataChat.get("currentUser").get("id");
+		dataUsersGroupAtendimento = invokeurl
+		[
+			url :"https://api.groupatendimento.com.br/core/v2/api/users/" + currentUser
+			type :GET
+			headers:headers
+		];
+		emailUser = dataUsersGroupAtendimento.get("email");
+		headers = Map();
+		headers.put("access-token",accessToken);
+		headers.put("Content-Type",contentType);
+		body = Map();
+		body.put("number",contactDestinationNumber);
+		body.put("message",messageToSend);
+		body.put("forceSend",true);
+		if(createNewService.get("errorCode") != "chat_11")
+		{
+			lastShippingLog = concat(lastShippingLog," MENSAGEM AGENDADA ENVIADA POR: " + emailUser + ". Atendimento criado com sucesso para o número " + contactDestinationNumber + ".");
+			updateDeal.put("Flag_Agendamento",false);
+			updateDeal.put("Data_Agendamento",null);
+			updateDeal.put("Hora_Agendamento",null);
+			updateDeal.put("Msg_Agendada",null);
+			updateDeal.put("Responsavel_Atendimento",null);
+			updateDeal.put("Log_Ultimo_Envio_Wpp_Agendado",lastShippingLog);
+			zoho.crm.updateRecord("Deals",dealId,updateDeal);
+			info lastShippingLog;
+			continue;
+		}
+		else
+		{
+			sendText = invokeurl
+			[
+				url :"https://api.groupatendimento.com.br/core/v2/api/chats/send-text"
+				type :POST
+				parameters:body.toString()
+				headers:headers
+			];
+			lastShippingLog = concat(lastShippingLog," MENSAGEM AGENDADA ENVIADA POR: " + emailUser + ". O atendimento para o número " + contactDestinationNumber + " já se encontra em aberto. Responsável pela abertura do chat: " + emailUser);
+			updateDeal.put("Flag_Agendamento",false);
+			updateDeal.put("Data_Agendamento",null);
+			updateDeal.put("Hora_Agendamento",null);
+			updateDeal.put("Msg_Agendada",null);
+			updateDeal.put("Responsavel_Atendimento",null);
+			updateDeal.put("Log_Ultimo_Envio_Wpp_Agendado",lastShippingLog);
+			info lastShippingLog;
+			zoho.crm.updateRecord("Deals",dealId,updateDeal);
+			continue;
+		}
+	}
+}
+catch (e)
+{
+	info "Erro na linha: " + e.lineNo + " - Mensagem: " + e.message;
+	info e;
+}
